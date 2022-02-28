@@ -3,14 +3,7 @@ package acc.br.notas.controller
 import acc.br.notas.model.Note
 import acc.br.notas.repository.NoteRepository
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.http.HttpStatus
-import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
-import java.net.http.HttpResponse
-import java.util.*
-import kotlin.NoSuchElementException
-import kotlin.collections.ArrayList
-import kotlin.jvm.Throws
 
 @RestController
 @RequestMapping("notes")
@@ -25,54 +18,58 @@ class NoteController {
     }
 
     @PostMapping
-    fun add(@RequestBody note: Note): Note {
-        return noteRepository.save(note)
+    fun add(@RequestBody note: Note): Any {
+        try {
+            return noteRepository.save(note)
+        } catch (e: CustomException) {
+            return CustomException("This note is not present in database")
+        }
+
     }
 
     @PostMapping("/manyNotes")
-    fun batchAdd(@RequestBody note: List<Note>): List<Note> {
-
-        val addedNotes = ArrayList<Note>()
-        note.forEach { n ->
-            addedNotes.add(noteRepository.save(n))
+    fun batchAdd(@RequestBody note: List<Note>): Any {
+        try {
+            val addedNotes = ArrayList<Note>()
+            note.forEach { n ->
+                addedNotes.add(noteRepository.save(n))
+            }
+            return addedNotes
+        } catch (e: CustomException) {
+            return CustomException("This note is not present in database")
         }
-        return addedNotes
+
     }
 
     @PutMapping("/{id}")
     fun update(
         @PathVariable id: Long,
         @RequestBody note: Note
-    ): Note {
-        var searchForNote = noteRepository.findById(id)
-
-        println("search ${searchForNote}, note ${note}")
-        return when {
-            !searchForNote.isPresent -> throw Exception("This note is not present in database")
-            searchForNote.isPresent && searchForNote.equals(note) -> throw Exception("There are no new inputs")
-            else -> noteRepository.save(searchForNote.get().copy(title = note.title, description = note.description))
+    ): Any {
+        try {
+            var searchForNote = noteRepository.findById(id)
+            return noteRepository.save(searchForNote.get().copy(title = note.title, description = note.description))
+        } catch (e: CustomException) {
+            return CustomException("This note is not present in database")
         }
     }
 
     @DeleteMapping("/{id}")
-    fun delete(@PathVariable id: Long) {
+    fun delete(@PathVariable id: Long): Any {
 
-        val resposta = "Elemento não encontrado"
-        var deletingItem: Unit
+        val searchElement = noteRepository.findById(id)
+
         try {
-            val searchForNote = noteRepository.findById(id).get()
-            println("o que foi lido: $searchForNote")
-
-           return if searchForNote.equals(null) ? noteRepository.delete(searchForNote) : resposta
-
-
-                   (!) {
-                   println("passou aqui: ${searchForNote}")
-                   deletingItem =
-           } else {
-            println("passou aqui no catch: ${resposta}")
-                ResponseEntity(resposta,HttpStatus.NOT_FOUND)
-            }
+            return noteRepository.delete(searchElement.get())
+        } catch (e: CustomException) {
+            return CustomException("Insira o id")
+        }
     }
 }
 
+class CustomException : Throwable {
+    constructor() : super()
+    constructor(message: String) : super("$message")
+    constructor(message: String, cause: Throwable) : super("$message", cause)
+    constructor(cause: Throwable) : super(cause)
+}
